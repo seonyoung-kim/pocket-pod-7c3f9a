@@ -88,3 +88,11 @@ def test_itunes_duration_formats_as_hhmmss():
     durations = [i.findtext("itunes:duration", namespaces=ns) for i in root.findall("channel/item")]
     assert "01:01:01" in durations
     assert "00:10:00" in durations
+
+
+def test_hhmmss_boundary_values():
+    from scripts.rss_builder import _hhmmss
+    assert _hhmmss(0) == "00:00:00"
+    assert _hhmmss(3600) == "01:00:00"
+    assert _hhmmss(59) == "00:00:59"
+    assert _hhmmss(90061) == "25:01:01"

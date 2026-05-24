@@ -1,6 +1,5 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from datetime import datetime
 
 from dateutil.parser import isoparse
 from feedgen.feed import FeedGenerator
