@@ -1,6 +1,7 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,14 +19,19 @@ def download_episode(ep: Episode, out_dir: Path) -> Path | None:
         "--audio-format", "m4a",
         "--no-playlist",
         "--no-progress",
-        # anti-bot evasion: try clients that don't require PO token
+        # anti-bot evasion: prefer clients that don't require PO token
         "--extractor-args", "youtube:player_client=tv_simply,web_safari,mweb",
         "--user-agent",
         "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) "
         "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+    ]
+    cookies_file = os.environ.get("POCKET_POD_COOKIES_FILE")
+    if cookies_file and Path(cookies_file).is_file():
+        cmd.extend(["--cookies", cookies_file])
+    cmd.extend([
         "-o", str(out_path.with_suffix("")) + ".%(ext)s",
         ep.url,
-    ]
+    ])
     print(f"[download] {ep.video_id} → {out_path.name}", file=sys.stderr)
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
