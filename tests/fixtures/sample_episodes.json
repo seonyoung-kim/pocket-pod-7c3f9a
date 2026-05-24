@@ -1,0 +1,26 @@
+[
+  {
+    "video_id": "aaa111BBB__",
+    "title": "First episode",
+    "channel": "Ch A",
+    "duration_sec": 3661,
+    "url": "https://www.youtube.com/watch?v=aaa111BBB__",
+    "summary": "Summary of first.",
+    "published_at": "2026-05-24T03:00:00+00:00",
+    "score": 9.0,
+    "asset_url": "https://github.com/owner/repo/releases/download/weekly-2026-05-24/2026-05-24_aaa111BBB___First_episode.m4a",
+    "asset_bytes": 12345678
+  },
+  {
+    "video_id": "bbb222CCC--",
+    "title": "Second & special <chars>",
+    "channel": "Ch B",
+    "duration_sec": 600,
+    "url": "https://www.youtube.com/watch?v=bbb222CCC--",
+    "summary": "Has \"quotes\" and <html>.",
+    "published_at": "2026-05-21T03:00:00+00:00",
+    "score": 7.5,
+    "asset_url": "https://github.com/owner/repo/releases/download/weekly-2026-05-21/2026-05-21_bbb222CCC---Second_special.m4a",
+    "asset_bytes": 5000000
+  }
+]
