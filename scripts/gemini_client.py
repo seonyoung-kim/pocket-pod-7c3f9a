@@ -10,7 +10,9 @@ from google.genai import types
 
 
 _FLASH_MODEL = "gemini-2.5-flash"
-_PRO_MODEL = "gemini-2.5-pro"
+# Pro tier has free-tier limit=0; use Flash for Stage 2 as well.
+# Quality drops vs Pro but stays within free tier.
+_PRO_MODEL = "gemini-2.5-flash"
 
 
 @dataclass(frozen=True)
