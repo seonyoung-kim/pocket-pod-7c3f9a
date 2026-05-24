@@ -41,6 +41,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          POCKET_POD_SKIP_STAGE2: "1"
         run: python -m scripts.curate
       - name: Download audio
         run: python -m scripts.download

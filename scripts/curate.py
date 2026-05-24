@@ -1,6 +1,7 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -94,34 +95,56 @@ def main() -> int:
         return 0
 
     cand_by_id = {c.video_id: c for c in candidates}
-    verdicts = []
-    for s1 in top1:
-        cand = cand_by_id.get(s1.video_id)
-        if cand is None:
-            continue
-        try:
-            v = gem.deep_analyze(cand.url, interests_text)
-            verdicts.append((cand, v))
-            print(f"[curate] Stage 2 {cand.video_id} score={v.score:.1f}", file=sys.stderr)
-        except Exception as e:
-            print(f"[curate] Stage 2 failed for {cand.video_id}: {e}", file=sys.stderr)
+    skip_stage2 = os.environ.get("POCKET_POD_SKIP_STAGE2") == "1"
 
-    verdicts.sort(key=lambda x: x[1].score, reverse=True)
-    selected = verdicts[: cfg["top_n"]]
+    if skip_stage2:
+        # Free-tier quota for Pro=0; Flash video understanding is slow/quota-heavy.
+        # Fall back to Stage 1 ranking only.
+        selected_s1 = top1[: cfg["top_n"]]
+        episodes = [
+            Episode(
+                video_id=s1.video_id,
+                title=cand_by_id[s1.video_id].title,
+                channel=cand_by_id[s1.video_id].channel,
+                duration_sec=cand_by_id[s1.video_id].duration_sec,
+                url=cand_by_id[s1.video_id].url,
+                summary=s1.reason or cand_by_id[s1.video_id].title,
+                published_at=cand_by_id[s1.video_id].published_at,
+                score=s1.score,
+            )
+            for s1 in selected_s1
+            if s1.video_id in cand_by_id
+        ]
+        print(f"[curate] Stage 2 skipped (env POCKET_POD_SKIP_STAGE2=1)", file=sys.stderr)
+    else:
+        verdicts = []
+        for s1 in top1:
+            cand = cand_by_id.get(s1.video_id)
+            if cand is None:
+                continue
+            try:
+                v = gem.deep_analyze(cand.url, interests_text)
+                verdicts.append((cand, v))
+                print(f"[curate] Stage 2 {cand.video_id} score={v.score:.1f}", file=sys.stderr)
+            except Exception as e:
+                print(f"[curate] Stage 2 failed for {cand.video_id}: {e}", file=sys.stderr)
 
-    episodes = [
-        Episode(
-            video_id=c.video_id,
-            title=c.title,
-            channel=c.channel,
-            duration_sec=c.duration_sec,
-            url=c.url,
-            summary=v.summary,
-            published_at=c.published_at,
-            score=v.score,
-        )
-        for c, v in selected
-    ]
+        verdicts.sort(key=lambda x: x[1].score, reverse=True)
+        selected = verdicts[: cfg["top_n"]]
+
+        episodes = [
+            Episode(
+                video_id=c.video_id,
+                title=c.title,
+                channel=c.channel,
+                duration_sec=c.duration_sec,
+                url=c.url,
+                summary=v.summary,
+                published_at=c.published_at,
+                score=v.score,
+            )
+            for c, v in selected
+        ]
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
