@@ -18,6 +18,11 @@ def download_episode(ep: Episode, out_dir: Path) -> Path | None:
         "--audio-format", "m4a",
         "--no-playlist",
         "--no-progress",
+        # anti-bot evasion: try clients that don't require PO token
+        "--extractor-args", "youtube:player_client=tv_simply,web_safari,mweb",
+        "--user-agent",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
         "-o", str(out_path.with_suffix("")) + ".%(ext)s",
         ep.url,
     ]
