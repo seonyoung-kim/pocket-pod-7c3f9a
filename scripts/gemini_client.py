@@ -73,5 +73,37 @@ class GeminiClient:
         ]
 
     def deep_analyze(self, video_url: str, interests_yaml_text: str) -> Stage2Verdict:
-        """Stage 2 placeholder; implemented in Task 6."""
-        raise NotImplementedError
+        """Stage 2: send YouTube URL as fileData; return summary + final score."""
+        # Extract video_id from URL for the response
+        video_id = video_url.split("watch?v=")[-1].split("&")[0]
+
+        prompt = (
+            "You are evaluating a single YouTube video for a personal podcast feed.\n"
+            "Watch the video and judge how well it matches the interest profile below.\n"
+            'Return ONLY a JSON object: {"score": float 0-10, "summary": "1-2 Korean sentences"}.\n\n'
+            "=== INTERESTS ===\n"
+            f"{interests_yaml_text}\n"
+        )
+        contents = types.Content(
+            role="user",
+            parts=[
+                types.Part(file_data=types.FileData(file_uri=video_url)),
+                types.Part(text=prompt),
+            ],
+        )
+        resp = self._client.models.generate_content(
+            model=_PRO_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.3,
+            ),
+        )
+        data = json.loads(resp.text)
+        # Stage 2 rate limit: 5 RPM on free tier. Sleep to be safe.
+        time.sleep(13)
+        return Stage2Verdict(
+            video_id=video_id,
+            score=float(data["score"]),
+            summary=str(data["summary"]),
+        )
