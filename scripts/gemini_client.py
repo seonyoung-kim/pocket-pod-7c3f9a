@@ -9,7 +9,7 @@ from google import genai
 from google.genai import types
 
 
-_FLASH_MODEL = "gemini-2.0-flash"
+_FLASH_MODEL = "gemini-2.5-flash"
 _PRO_MODEL = "gemini-2.5-pro"
 
 
