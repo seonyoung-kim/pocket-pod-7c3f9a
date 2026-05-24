@@ -1,0 +1,9 @@
+keywords:
+  - 희야기
+excludes: []
+duration:
+  min_minutes: 5
+  max_minutes: 90
+recency_days: 14
+top_n: 5
+stage1_top_n: 10
