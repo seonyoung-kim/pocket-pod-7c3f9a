@@ -19,11 +19,10 @@ def download_episode(ep: Episode, out_dir: Path) -> Path | None:
         "--audio-format", "m4a",
         "--no-playlist",
         "--no-progress",
-        # anti-bot evasion: tv_simply (TV embed) is least likely to require GVS PO token
-        "--extractor-args", "youtube:player_client=tv_simply",
+        # default web client + cookies; some videos may pass without PO Token
         "--user-agent",
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) "
-        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
     ]
     cookies_file = os.environ.get("POCKET_POD_COOKIES_FILE")
     if cookies_file and Path(cookies_file).is_file():
