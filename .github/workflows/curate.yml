@@ -1,0 +1,56 @@
+name: curate-and-publish
+on:
+  workflow_dispatch:
+  schedule:
+    # 06:00 KST Mon & Thu = 21:00 UTC Sun & Wed
+    - cron: '0 21 * * 0,3'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: curate
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Configure git (for gh-pages push)
+        run: |
+          git config user.name "pocket-pod-bot"
+          git config user.email "actions@github.com"
+      - name: Curate
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python -m scripts.curate
+      - name: Download audio
+        run: python -m scripts.download
+      - name: Publish to Release + Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python -m scripts.publish
+      - name: Cleanup old releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python -m scripts.cleanup
