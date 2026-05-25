@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% set active = "episodes" %}
+{% block body %}
+  <div class="feed-url">
+    Feed: <a href="/feed.xml">/feed.xml</a>
+    · Served by server.py on {{ base_url }}
+  </div>
+
+  <h2>Episodes ({{ state.episodes|length }})</h2>
+  {% if not state.episodes %}
+    <div class="empty">아직 다운로드한 에피소드가 없어.</div>
+  {% endif %}
+
+  {% for ep in state.episodes|reverse %}
+    <div class="card">
+      <div class="meta">
+        <h3>{{ ep.title }}</h3>
+        <div class="sub">
+          {{ ep.channel }}
+          · {{ "%d:%02d"|format(ep.duration_sec // 60, ep.duration_sec % 60) }}
+          · {{ "%.1f MB"|format(ep.asset_bytes / 1048576) }}
+          · downloaded {{ ep.downloaded_at }}
+        </div>
+        <div class="sub">{{ ep.asset_filename }}</div>
+        <div class="actions">
+          <a href="{{ base_url }}/data/downloads/{{ ep.asset_filename }}"
+             target="_blank">▶ Play</a>
+          <form method="post" action="/episodes/delete/{{ ep.video_id }}"
+                class="inline"
+                onsubmit="return confirm('삭제하시겠습니까?');">
+            <button type="submit">✕ Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+{% endblock %}

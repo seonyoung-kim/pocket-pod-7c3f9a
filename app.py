@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import Flask, redirect, render_template, request, url_for
 
 from scripts.curator import run_curation
-from scripts.downloader import default_deps, download_one
+from scripts.downloader import default_deps, download_one, regenerate_feed
 from scripts.rss_builder import FeedMeta
 from scripts.state import Candidate, SkippedEntry, load_state, save_state
 from scripts.watchlist import ChannelEntry, load_watchlist, save_watchlist
@@ -160,7 +160,6 @@ def episode_delete(video_id: str):
             asset.unlink()
         state.episodes = [e for e in state.episodes if e.video_id != video_id]
         save_state(STATE_PATH, state)
-        from scripts.downloader import regenerate_feed
         regenerate_feed(state, FEED_META, BASE_URL, FEED_PATH)
     return redirect(url_for("episodes_page"))
 
