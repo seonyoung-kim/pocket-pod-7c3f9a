@@ -160,6 +160,7 @@ channels:
 ### 6.1 데이터 소스
 
 YouTube Data API 안 씀. yt-dlp의 `extract_flat='in_playlist'`로 채널 `/videos` 페이지에서 메타만 추출.
+채널 URL은 호출 전 `urllib.parse.quote`로 path만 percent-encode 한다 (한글 핸들 대응).
 
 ```python
 opts = {
@@ -175,7 +176,7 @@ opts = {
 }
 ```
 
-각 entry에서 `id`, `title`, `duration`, `view_count`, `upload_date`(YYYYMMDD), `uploader`, `thumbnail`을 얻는다. flat extract 누락 필드(주로 `view_count`/`upload_date`)는 후보에서 제외 (deep fallback 안 함).
+각 entry에서 `id`, `title`, `duration`, `view_count`, `upload_date`(YYYYMMDD), `uploader`, `thumbnail`을 얻는다. flat extract 누락 필드(주로 `view_count`/`upload_date`)는 영상 단위 deep fetch로 1회 보강 시도 (`_enrich_if_missing`). 보강 후에도 비어 있으면 후보에서 제외. (한국어 채널·Shorts 혼합 채널에서 flat extract가 metadata를 누락하는 경우 발견 — 2026-05-25)
 
 ### 6.2 알고리즘
 

@@ -110,3 +110,73 @@ def test_per_channel_override_lookback():
     with patch("scripts.curator.fetch_channel_videos", return_value=fake):
         out = curate(wl, State())
     assert [c.video_id for c in out] == ["a"]
+
+
+def test_safe_channel_url_encodes_korean_handle():
+    from scripts.curator import _safe_channel_url
+    assert _safe_channel_url("https://www.youtube.com/@지식인사이드") == \
+        "https://www.youtube.com/@%EC%A7%80%EC%8B%9D%EC%9D%B8%EC%82%AC%EC%9D%B4%EB%93%9C"
+    # Already-encoded URL stays the same (% in safe charset)
+    assert _safe_channel_url("https://www.youtube.com/@%EC%A7%80") == \
+        "https://www.youtube.com/@%EC%A7%80"
+    # ASCII handle untouched
+    assert _safe_channel_url("https://www.youtube.com/@AndrejKarpathy") == \
+        "https://www.youtube.com/@AndrejKarpathy"
+
+
+def test_fetch_channel_videos_enriches_missing_fields():
+    """flat extract에 view_count/upload_date 누락 → deep fetch로 보강."""
+    from datetime import date
+    from unittest.mock import patch
+    from scripts.curator import fetch_channel_videos
+
+    flat_response = {
+        "channel_id": "UCx", "channel": "ch",
+        "entries": [
+            {"id": "ok1", "title": "t1", "duration": 60,
+             "view_count": 1000, "upload_date": "20260520",
+             "thumbnails": [{"url": "https://i/ok1.jpg"}]},
+            {"id": "missing", "title": "t2", "duration": 60,
+             "view_count": None, "upload_date": None,
+             "thumbnails": [{"url": "https://i/m.jpg"}]},
+        ],
+    }
+    deep_response = {
+        "channel_id": "UCx", "channel": "ch", "title": "t2",
+        "duration": 70, "view_count": 5000, "upload_date": "20260521",
+        "thumbnail": "https://i/m2.jpg",
+    }
+
+    class FakeYDL:
+        def __init__(self, opts): self.opts = opts
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def extract_info(self, url, download=False):
+            return flat_response if "/videos" in url else deep_response
+
+    with patch("scripts.curator.YoutubeDL", FakeYDL):
+        out = fetch_channel_videos("https://www.youtube.com/@ch", limit=10)
+
+    assert [v.video_id for v in out] == ["ok1", "missing"]
+    # ok1 untouched (flat already had view_count + upload_date)
+    assert out[0].view_count == 1000
+    assert out[0].upload_date_yyyymmdd == "20260520"
+    # missing got enriched via deep fetch
+    assert out[1].view_count == 5000
+    assert out[1].upload_date_yyyymmdd == "20260521"
+
+
+def test_enrich_returns_original_when_deep_fetch_fails():
+    from yt_dlp import DownloadError
+    from unittest.mock import patch
+    from scripts.curator import VideoMeta, _enrich_if_missing
+
+    v = VideoMeta(
+        video_id="x", channel_id="", channel_name="",
+        title="t", duration_sec=0, view_count=None,
+        upload_date_yyyymmdd=None, thumbnail_url="",
+    )
+    with patch("scripts.curator._ytdlp_video_meta",
+               side_effect=DownloadError("anti-bot")):
+        result = _enrich_if_missing(v)
+    assert result is v   # unchanged

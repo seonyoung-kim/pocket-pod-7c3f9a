@@ -6,6 +6,7 @@ import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit, quote
 
 from yt_dlp import YoutubeDL, DownloadError
 
@@ -19,6 +20,14 @@ _MOBILE_UA = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) "
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
 )
+
+
+def _safe_channel_url(channel_url: str) -> str:
+    """yt-dlp 가 한글 핸들 URL을 raw로 받으면 인식 실패한다.
+    path만 percent-encode 하되 이미 인코딩된 `%XX`는 그대로 둔다."""
+    parts = urlsplit(channel_url)
+    safe_path = quote(parts.path, safe="/@-._~%")
+    return urlunsplit(parts._replace(path=safe_path))
 
 
 @dataclass(frozen=True)
@@ -51,10 +60,54 @@ def _ytdl_opts(limit: int) -> dict:
     return opts
 
 
+def _ytdlp_video_meta(video_id: str) -> dict:
+    """단일 영상의 deep metadata. flat extract에서 누락된 필드 보강용."""
+    opts: dict = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "http_headers": {"User-Agent": _MOBILE_UA},
+        "extractor_args": {
+            "youtube": {"player_client": ["tv_simply", "web_safari", "mweb"]}
+        },
+    }
+    if cookies := os.environ.get("POCKET_POD_COOKIES"):
+        opts["cookiefile"] = cookies
+    if proxy := os.environ.get("POCKET_POD_PROXY"):
+        opts["proxy"] = proxy
+    with YoutubeDL(opts) as ydl:
+        return ydl.extract_info(
+            f"https://www.youtube.com/watch?v={video_id}", download=False)
+
+
+def _enrich_if_missing(v: VideoMeta) -> VideoMeta:
+    """flat extract에서 view_count 또는 upload_date가 비면 deep fetch로 보강.
+    deep fetch도 실패하거나 여전히 비면 원본 그대로 반환 (상위 필터가 제외)."""
+    if v.view_count is not None and v.upload_date_yyyymmdd:
+        return v
+    if not v.video_id:
+        return v
+    try:
+        info = _ytdlp_video_meta(v.video_id)
+    except DownloadError as e:
+        log.warning("deep meta failed for %s: %s", v.video_id, e)
+        return v
+    return VideoMeta(
+        video_id=v.video_id,
+        channel_id=info.get("channel_id") or v.channel_id,
+        channel_name=info.get("channel") or v.channel_name,
+        title=info.get("title") or v.title,
+        duration_sec=int(info.get("duration") or v.duration_sec),
+        view_count=v.view_count if v.view_count is not None else info.get("view_count"),
+        upload_date_yyyymmdd=v.upload_date_yyyymmdd or info.get("upload_date"),
+        thumbnail_url=v.thumbnail_url or info.get("thumbnail", ""),
+    )
+
+
 def fetch_channel_videos(channel_url: str, limit: int,
                          channel_overrides: dict | None = None) -> list[VideoMeta]:
     """Fetch up to `limit` recent videos from a channel via yt-dlp flat extract."""
-    target = channel_url.rstrip("/")
+    target = _safe_channel_url(channel_url.rstrip("/"))
     if "/videos" not in target and "playlist?" not in target:
         target = f"{target}/videos"
     with YoutubeDL(_ytdl_opts(limit)) as ydl:
@@ -74,7 +127,7 @@ def fetch_channel_videos(channel_url: str, limit: int,
             upload_date_yyyymmdd=e.get("upload_date"),
             thumbnail_url=(e.get("thumbnails") or [{}])[-1].get("url", ""),
         ))
-    return out
+    return [_enrich_if_missing(v) for v in out]
 
 
 def _parse_upload(yyyymmdd: str) -> date:
