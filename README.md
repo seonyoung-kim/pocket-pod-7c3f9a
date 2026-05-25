@@ -37,14 +37,32 @@ POCKET_POD_BASE_URL=http://192.168.45.81:8000 ./scripts/launchd/install.sh
 상태·로그·해제:
 
 ```bash
-launchctl list | grep pocketpod                            # 두 줄 보이면 OK
-tail -f data/logs/{server,app}.{out,err}.log               # 실시간 로그
+launchctl list | grep pocketpod                            # PID + 마지막 exit code
+tail -f data/logs/{server,app}.{out,err}.log               # 실시간 로그 (4개 파일)
 ./scripts/launchd/uninstall.sh                             # 등록 해제
 ```
 
 설치 후:
 - 콘솔: <http://192.168.45.81:8001>
 - 구독: <http://192.168.45.81:8000/feed.xml>
+
+#### 재기동 / 관리
+
+| 상황 | 명령 |
+|------|------|
+| 코드 바꿨을 때 (Flask 콘솔만) | `launchctl kickstart -k gui/$(id -u)/com.pocketpod.app` |
+| 코드 바꿨을 때 (정적 서버만) | `launchctl kickstart -k gui/$(id -u)/com.pocketpod.server` |
+| env 변수·plist 자체 수정 | `./scripts/launchd/install.sh` (idempotent — bootout + bootstrap) |
+| 잠시 멈추기 | `launchctl bootout gui/$(id -u)/com.pocketpod.app` (server 도 동일) |
+| 다시 시작 | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.pocketpod.app.plist` |
+| 완전 해제 | `./scripts/launchd/uninstall.sh` |
+
+`launchctl kickstart -k` 가 가장 자주 쓰임. `-k` 가 기존 프로세스를 죽이고 `KeepAlive` 가 즉시 새로 띄움. Flask/server.py 는 자체 reload 가 없으니 코드 변경 후 이 명령이 일반 흐름.
+
+**자동 동작 (안 외워도 됨):**
+- macOS 재부팅 / 로그인 → `RunAtLoad=true` 로 자동 시작
+- 프로세스 크래시 → `KeepAlive=true` 로 자동 재시작
+- yt-dlp / ffmpeg 위치 변경(homebrew 업그레이드 등) → 코드의 `_ytdlp_binary()` / `_ffmpeg_location()` 가 매 호출마다 resolve
 
 ### 옵션 2: 수동 실행 (개발 / 일회성)
 
