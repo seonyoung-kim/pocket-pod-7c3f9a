@@ -139,10 +139,59 @@ To **re-enable Stage 2** (better curation):
   quota for (`gemini-2.5-flash` is OK but slow for video analysis), and
 - Remove `POCKET_POD_SKIP_STAGE2: "1"` from `.github/workflows/curate.yml`.
 
-### YouTube `Sign in to confirm you're not a bot`
+### ⚠️ Current status: download stage blocked on data-center IP
+
+After 8 fix iterations (cookies, multiple `player_client`s, datacenter
+proxy via Webshare, deno JS runtime) the download stage still fails on
+GitHub Actions because:
+
+1. `tv_simply` client doesn't accept cookies → anti-bot challenge
+2. `mweb`/`web` clients accept cookies but require **GVS PO Token** → 403
+3. `default` (web) requires **EJS JS challenge solver** → 403 even with deno installed
+4. Webshare free proxy is **datacenter, not residential** → all of the above re-applied
+
+**Root cause**: YouTube treats every data-center IP (GitHub Actions, AWS, GCP,
+Webshare-free) as suspicious. The only viable paths are a **residential IP**
+or a **paid residential proxy**.
+
+### Next step: Raspberry Pi at home (planned)
+
+Decision: run the pipeline on a Raspberry Pi at K's home (residential ISP IP,
+no data-center). When the Pi arrives:
+
+1. **OS**: Raspberry Pi OS Lite (64-bit) or Ubuntu Server 24.04 ARM64
+2. **Install runtimes**:
+   ```bash
+   sudo apt update && sudo apt install -y python3.11 python3.11-venv ffmpeg git
+   curl -fsSL https://deno.land/install.sh | sh
+   ```
+3. **Register as GitHub self-hosted runner**:
+   - Repo Settings → Actions → Runners → New self-hosted runner → Linux ARM64
+   - Follow the displayed commands; install as service (`./svc.sh install && ./svc.sh start`)
+4. **Update workflow**: change `runs-on: ubuntu-latest` → `runs-on: [self-hosted, Linux, ARM64]`
+   and remove the `Install system deps` / `Install deno` / `Write YouTube cookies` /
+   `--proxy` plumbing (Pi has direct residential access, often no cookies needed either)
+5. **Optional**: drop the `YT_PROXY_URL` and `YOUTUBE_COOKIES` secrets once the
+   Pi proves stable.
+
+Until the Pi is online, the workflow remains broken at the Download step.
+Curate (Gemini Flash) still works end-to-end if you ever need to dry-run it.
+
+### Gemini Pro free-tier is `limit: 0`
+On the Google AI free tier, `gemini-2.5-pro` has zero daily requests for new
+projects (only `gemini-2.5-flash` has a usable allowance). Stage 2 (video
+understanding) is therefore **disabled by default** via the env var
+`POCKET_POD_SKIP_STAGE2=1` set in the workflow.
+
+To **re-enable Stage 2** (better curation):
+- Enable billing on the GCP project tied to `GEMINI_API_KEY`, or
+- Switch `_PRO_MODEL` in `scripts/gemini_client.py` to a model your key has
+  quota for (`gemini-2.5-flash` is OK but slow for video analysis), and
+- Remove `POCKET_POD_SKIP_STAGE2: "1"` from `.github/workflows/curate.yml`.
+
+### YouTube anti-bot (cookies / proxy / deno chain)
 GitHub Actions data-center IPs are aggressively challenged by YouTube.
-Mitigation in this repo:
-- `--extractor-args "youtube:player_client=tv_simply,web_safari,mweb"`
+Current mitigation (still insufficient — see "Current status" above):
 - Mobile Safari User-Agent
 - **YouTube cookies** from the K's logged-in Chrome session, stored in the
   `YOUTUBE_COOKIES` secret. The workflow's *"Write YouTube cookies"* step
@@ -172,6 +221,32 @@ Stage 2 video analysis stuck on Gemini rate-limit backoff. Confirm
   Treat it as a password: refresh on suspected compromise, never paste its
   value into chat/screenshots, never commit the cookies file.
 
+## Lessons learned (so far)
+
+This project's most useful output is not the code — it's the lessons from
+walking into a wall called "YouTube anti-bot":
+
+1. **Where code runs matters more than what code does.** Data-center IP vs
+   residential IP is invisible at plan time but dominates outcomes for
+   anything touching consumer platforms (YouTube, Cloudflare-protected sites).
+2. **Each external dependency multiplies failure modes.** We hit 4 walls:
+   Gemini Pro free-tier=0, GitHub Secret 48 KB cap, YouTube cookie+client
+   catch-22, EJS challenge. None of these were in the original spec's risk
+   list (they should have been).
+3. **`yt-dlp` vs YouTube is structurally cat-and-mouse.** Open-source vs
+   closed platform with active anti-scraping incentive. Acknowledging a
+   risk is not the same as mitigating it.
+4. **Plans optimize the wrong axis when the binding constraint is
+   misjudged.** We spent disproportionate effort on curation quality
+   (2-stage Gemini), while the actual blocking constraint was simply
+   "can we download anything." A first task of "download one video
+   end-to-end" would have surfaced the wall before any of the rest.
+5. **Decision fatigue is a cost.** Plans should compress decisions, not
+   spread them across every fix-iteration.
+6. **Knowing when to stop is a senior skill.** This project should be
+   suspended (not declared failed) until the Pi arrives. The code, the
+   spec, and the lesson have all been captured; nothing is lost.
+
 ## Future enhancements (deliberately out of scope)
 
 - Channel weighting (`channels_preferred` in `interests.yaml`)
@@ -179,6 +254,9 @@ Stage 2 video analysis stuck on Gemini rate-limit backoff. Confirm
 - AI-generated audio intro/summary spliced ahead of the original audio
 - Per-episode "listened" feedback to auto-learn interests
 - Signed/private RSS URLs
+- Pivot to "curation only" mode (notify K of weekly recommendations,
+  K downloads via YouTube Premium app) — kept on the shelf as a fallback
+  if the Pi path also stalls
 
 ---
 
