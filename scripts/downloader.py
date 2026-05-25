@@ -2,7 +2,9 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -16,6 +18,26 @@ from scripts.state import Candidate, State, StoredEpisode, load_state, save_stat
 
 
 log = logging.getLogger(__name__)
+
+
+def _ytdlp_binary() -> str:
+    """LaunchAgent 같은 PATH 가 빈약한 환경에서도 venv 의 yt-dlp 를 찾을 수 있게.
+    1) sys.executable 옆의 yt-dlp (venv)  2) PATH lookup  3) "yt-dlp" raw fallback."""
+    candidate = Path(sys.executable).parent / "yt-dlp"
+    if candidate.exists():
+        return str(candidate)
+    return shutil.which("yt-dlp") or "yt-dlp"
+
+
+def _ffmpeg_location() -> str | None:
+    """yt-dlp 가 m4a post-process 시 ffmpeg/ffprobe 필요. LaunchAgent PATH 가
+    homebrew bin 을 포함하지 않으므로 위치 명시. 환경변수 override 가능."""
+    if env := os.environ.get("POCKET_POD_FFMPEG"):
+        return env
+    for path in ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"):
+        if (Path(path) / "ffmpeg").exists():
+            return path
+    return None
 
 _MAX_SUMMARY = 500
 _MOBILE_UA = (
@@ -65,7 +87,7 @@ def _ytdlp_download(url: str, out_path: Path) -> bool:
     # 일부 영상에서 GVS PO Token 요구로 audio stream 접근이 막힌다. cookies/proxy
     # env 가 있으면 그쪽이 anti-bot 우회를 담당.
     cmd = [
-        "yt-dlp",
+        _ytdlp_binary(),
         "-f", "bestaudio[ext=m4a]/bestaudio",
         "--extract-audio",
         "--audio-format", "m4a",
@@ -73,6 +95,8 @@ def _ytdlp_download(url: str, out_path: Path) -> bool:
         "--no-progress",
         "--user-agent", _MOBILE_UA,
     ]
+    if ffmpeg_dir := _ffmpeg_location():
+        cmd += ["--ffmpeg-location", ffmpeg_dir]
     if cookies := os.environ.get("POCKET_POD_COOKIES"):
         cmd += ["--cookies", cookies]
     if proxy := os.environ.get("POCKET_POD_PROXY"):
