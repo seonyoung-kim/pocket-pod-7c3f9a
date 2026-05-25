@@ -25,13 +25,17 @@ FEED_PATH        = _env_path("POCKET_POD_FEED_PATH",      "feed.xml")
 BASE_URL         = os.environ.get("POCKET_POD_BASE_URL",  "http://localhost:8000")
 FEED_TITLE       = os.environ.get("POCKET_POD_FEED_TITLE","pocket-pod")
 FEED_AUTHOR      = os.environ.get("POCKET_POD_FEED_AUTHOR","pocket-pod")
+FEED_IMAGE_URL   = os.environ.get(
+    "POCKET_POD_FEED_IMAGE_URL",
+    f"{BASE_URL.rstrip('/')}/cover.png",
+)
 
 FEED_META = FeedMeta(
     title=FEED_TITLE,
     description="Personal YouTube → audio podcast",
     link=BASE_URL,
     author=FEED_AUTHOR,
-    image_url=f"{BASE_URL.rstrip('/')}/cover.png",
+    image_url=FEED_IMAGE_URL,
     category="Technology",
 )
 

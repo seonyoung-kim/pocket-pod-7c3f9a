@@ -50,6 +50,7 @@ POCKET_POD_BASE_URL=http://192.168.45.81:8000 python app.py
 | `POCKET_POD_FEED_PATH` | feed.xml 출력 | `feed.xml` |
 | `POCKET_POD_FEED_TITLE` | RSS title | `pocket-pod` |
 | `POCKET_POD_FEED_AUTHOR` | RSS author | `pocket-pod` |
+| `POCKET_POD_FEED_IMAGE_URL` | RSS cover image URL | `{POCKET_POD_BASE_URL}/cover.png` |
 | `POCKET_POD_COOKIES` | yt-dlp `--cookies` 경로 | — |
 | `POCKET_POD_PROXY` | yt-dlp `--proxy` URL | — |
 
