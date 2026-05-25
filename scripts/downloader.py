@@ -61,6 +61,9 @@ def _ytdlp_meta(url: str) -> dict:
 
 def _ytdlp_download(url: str, out_path: Path) -> bool:
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # 기본 player_client (yt-dlp default) 사용. tv_simply/web_safari/mweb 명시는
+    # 일부 영상에서 GVS PO Token 요구로 audio stream 접근이 막힌다. cookies/proxy
+    # env 가 있으면 그쪽이 anti-bot 우회를 담당.
     cmd = [
         "yt-dlp",
         "-f", "bestaudio[ext=m4a]/bestaudio",
@@ -69,8 +72,6 @@ def _ytdlp_download(url: str, out_path: Path) -> bool:
         "--no-playlist",
         "--no-progress",
         "--user-agent", _MOBILE_UA,
-        "--extractor-args",
-        "youtube:player_client=tv_simply,web_safari,mweb",
     ]
     if cookies := os.environ.get("POCKET_POD_COOKIES"):
         cmd += ["--cookies", cookies]
