@@ -89,6 +89,21 @@ YouTube가 bot으로 의심해 메타 fetch나 다운로드가 실패하면:
 - 영상 단위 metadata fetch는 `process=False` 로 format selection 단계를 건너뜀.
 - 일부 영상은 GVS PO Token 을 요구할 수 있음 — cookies 한 번 설정하면 거의 해결됨.
 
+## Podcast cover
+
+기본 cover.png는 1400×1400 보라 그라데이션 + broadcast 아이콘 워드마크.
+podcast 앱에 보이는 썸네일이 이것. 자기 디자인으로 교체하려면 동일 경로에
+PNG/JPEG 덮어쓰기 (1400~3000px 정사각형 권장, sRGB).
+
+스크립트로 재생성하려면:
+
+```bash
+pip install -r requirements-dev.txt   # Pillow 포함
+python scripts/gen_cover.py           # → cover.png 갱신
+```
+
+URL 자체를 외부 호스팅 이미지로 바꾸고 싶으면 `POCKET_POD_FEED_IMAGE_URL` env 사용.
+
 ## Tests
 
 ```bash
