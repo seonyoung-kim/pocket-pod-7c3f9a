@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set active = "watchlist" %}
+{% block body %}
+  <h2>Defaults</h2>
+  <div class="sub">
+    lookback_days = {{ watchlist.defaults.lookback_days }},
+    top_k = {{ watchlist.defaults.top_k }}
+    <em>(yaml 직접 편집)</em>
+  </div>
+
+  <h2>Channels ({{ watchlist.channels|length }})</h2>
+  {% if not watchlist.channels %}
+    <div class="empty">아직 등록한 채널이 없어.</div>
+  {% endif %}
+  {% for ch in watchlist.channels %}
+    <div class="card">
+      <div class="meta">
+        <h3>{{ ch.alias or ch.url }}</h3>
+        <div class="sub">{{ ch.url }}</div>
+        <div class="sub">
+          lookback: {{ ch.lookback_days or "default" }} ·
+          top_k: {{ ch.top_k or "default" }}
+        </div>
+        <div class="actions">
+          <form method="post" action="/watchlist/remove" class="inline">
+            <input type="hidden" name="url" value="{{ ch.url }}">
+            <button type="submit">Remove</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+
+  <h2>Add channel</h2>
+  <form method="post" action="/watchlist/add">
+    <p>URL <input name="url" size="60" required></p>
+    <p>Alias <input name="alias"></p>
+    <p>Lookback days <input name="lookback_days" size="4"> (비우면 default)</p>
+    <p>Top K <input name="top_k" size="4"> (비우면 default)</p>
+    <p><button type="submit">Add</button></p>
+  </form>
+{% endblock %}

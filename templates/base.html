@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>pocket-pod</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+           max-width: 920px; margin: 24px auto; padding: 0 16px; color: #222; }
+    nav { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eee; }
+    nav a { text-decoration: none; color: #444; }
+    nav a.active { font-weight: 600; color: #000; }
+    .feed-url { background: #f6f6f6; padding: 8px 12px; margin: 12px 0;
+                font-family: monospace; font-size: 13px; }
+    .card { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+    .card img { width: 168px; height: 95px; object-fit: cover; background: #ddd; }
+    .card .meta { flex: 1; }
+    .card h3 { margin: 0 0 4px; font-size: 16px; }
+    .card .sub { color: #666; font-size: 13px; }
+    .card .actions { margin-top: 8px; display: flex; gap: 8px; }
+    button { font-size: 13px; padding: 4px 10px; cursor: pointer; }
+    .badge-progress { color: #b65; }
+    .badge-error { color: #c33; }
+    form.inline { display: inline; }
+    .empty { color: #999; padding: 24px 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" class="{{ 'active' if active == 'candidates' else '' }}">Candidates</a>
+    <a href="/watchlist" class="{{ 'active' if active == 'watchlist' else '' }}">Watchlist</a>
+    <a href="/episodes" class="{{ 'active' if active == 'episodes' else '' }}">Episodes</a>
+  </nav>
+  {% block body %}{% endblock %}
+</body>
+</html>

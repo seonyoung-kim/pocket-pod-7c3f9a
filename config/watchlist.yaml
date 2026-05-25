@@ -1,0 +1,5 @@
+defaults:
+  lookback_days: 7
+  top_k: 5
+
+channels: []

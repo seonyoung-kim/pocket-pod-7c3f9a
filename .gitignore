@@ -6,3 +6,10 @@ venv/
 out/
 .DS_Store
 *.m4a
+
+# runtime data
+data/*
+!data/.gitkeep
+feed.xml
+*.bak
+*.log
