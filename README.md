@@ -10,31 +10,49 @@ subscribe to.
 
 ## How it works
 
-1. **Watchlist** — `config/watchlist.yaml`에 채널 등록. 웹 UI에서도 추가/삭제 가능.
-2. **Curate** — `python -m scripts.curator` 또는 웹 UI의 [↻ Refresh Candidates]
-   버튼이 각 채널의 최근 N일 영상을 yt-dlp flat extract로 가져와 조회수 상위 K개를
-   후보로 제시.
-3. **Approve** — 웹 콘솔 (`:8001`) 에서 후보에 [▶ Download] / [✕ Skip].
-4. **Download** — 백그라운드 단일 워커가 m4a 추출 → `data/downloads/` 저장 →
-   `feed.xml` 재생성.
+1. **Watchlist** — `config/watchlist.yaml`에 채널 등록. 웹 UI에서도 추가/삭제 가능. 한국어 핸들 URL(`@한글이름`)은 자동으로 percent-encode 처리.
+2. **Curate** — `python -m scripts.curator` 또는 웹 UI의 [↻ Refresh Candidates] 버튼이 각 채널의 최근 N일 영상을 yt-dlp flat extract로 가져와 조회수 상위 K개를 후보로 제시. 누락된 메타(view_count·upload_date)는 영상 단위 deep fetch로 1회 보강.
+3. **Approve** — 웹 콘솔(`:8001`)에서 후보를 **채널별 섹션**으로 보고, 카드별 [▶ Download] / [✕ Skip] 또는 **체크박스로 묶어서 [▶ Download Selected]** (전체 선택 토글 지원).
+4. **Download** — 백그라운드 단일 워커가 m4a 추출 → `data/downloads/` 저장 → `feed.xml` 재생성. RSS `<description>`에는 영상 설명 첫 단락 + 원본 YouTube URL이 함께 embed.
 5. **Subscribe** — 폰/태블릿의 podcast 앱에서 `http://<LAN IP>:8000/feed.xml` 구독.
 
-## Quick start
+## 실행 방법
+
+### 옵션 1: 앱처럼 자동 시작 (macOS LaunchAgent, 추천)
+
+로그인 시 자동 실행 + 죽으면 자동 재시작. `~/Library/LaunchAgents/`에 두 plist 등록.
 
 ```bash
-git clone <repo>
-cd pocket-pod
+# 최초 1회 — venv + 의존성
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 매번 실행
+# LaunchAgent 등록 (en0 LAN IP 자동 추출)
+./scripts/launchd/install.sh
+
+# 또는 BASE_URL 직접 지정:
+POCKET_POD_BASE_URL=http://192.168.45.81:8000 ./scripts/launchd/install.sh
+```
+
+상태·로그·해제:
+
+```bash
+launchctl list | grep pocketpod                            # 두 줄 보이면 OK
+tail -f data/logs/{server,app}.{out,err}.log               # 실시간 로그
+./scripts/launchd/uninstall.sh                             # 등록 해제
+```
+
+설치 후:
+- 콘솔: <http://192.168.45.81:8001>
+- 구독: <http://192.168.45.81:8000/feed.xml>
+
+### 옵션 2: 수동 실행 (개발 / 일회성)
+
+```bash
 source .venv/bin/activate
 POCKET_POD_BASE_URL=http://192.168.45.81:8000 python server.py &
 POCKET_POD_BASE_URL=http://192.168.45.81:8000 python app.py
 ```
-
-- 콘솔: <http://192.168.45.81:8001>
-- 구독 URL: <http://192.168.45.81:8000/feed.xml>
 
 ## Environment variables
 
@@ -51,21 +69,30 @@ POCKET_POD_BASE_URL=http://192.168.45.81:8000 python app.py
 | `POCKET_POD_FEED_TITLE` | RSS title | `pocket-pod` |
 | `POCKET_POD_FEED_AUTHOR` | RSS author | `pocket-pod` |
 | `POCKET_POD_FEED_IMAGE_URL` | RSS cover image URL | `{POCKET_POD_BASE_URL}/cover.png` |
-| `POCKET_POD_COOKIES` | yt-dlp `--cookies` 경로 | — |
+| `POCKET_POD_COOKIES` | yt-dlp `--cookies` 경로 (anti-bot 우회) | — |
 | `POCKET_POD_PROXY` | yt-dlp `--proxy` URL | — |
+
+LaunchAgent로 등록한 상태에서 환경 변수를 바꾸려면 `scripts/launchd/com.pocketpod.*.plist` 의 `EnvironmentVariables` dict 수정 후 `./scripts/launchd/install.sh` 재실행.
 
 ## Anti-bot
 
-YouTube가 bot으로 의심해 `Sign in to confirm you're not a bot` 에러가 나면:
+YouTube가 bot으로 의심해 메타 fetch나 다운로드가 실패하면:
 
-1. 브라우저에서 youtube.com 로그인 → `cookies.txt`로 export
-2. `POCKET_POD_COOKIES=/path/to/cookies.txt` 지정
+1. 브라우저(`youtube.com`)에 로그인 → 확장(예: *Get cookies.txt LOCALLY*)으로 `cookies.txt` export
+2. `POCKET_POD_COOKIES=/path/to/cookies.txt` 지정 후 재시작
 
-거주지 proxy가 있으면 `POCKET_POD_PROXY=http://...`도 가능.
+거주지 proxy가 있으면 `POCKET_POD_PROXY=http://…` 도 동일 방식.
+
+### 알려진 제약
+
+- 채널 `/videos` 페이지는 tab parser와 호환되도록 `player_client`/모바일 UA를 끄고 yt-dlp default로 추출.
+- 영상 단위 metadata fetch는 `process=False` 로 format selection 단계를 건너뜀.
+- 일부 영상은 GVS PO Token 을 요구할 수 있음 — cookies 한 번 설정하면 거의 해결됨.
 
 ## Tests
 
 ```bash
+source .venv/bin/activate
 pytest -v
 # 실제 yt-dlp 호출은 마커로 분리 (필요 시):
 pytest -m integration
