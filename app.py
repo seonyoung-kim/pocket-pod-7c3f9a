@@ -44,6 +44,12 @@ app = Flask(__name__)
 download_queue: queue.Queue[Candidate] = queue.Queue()
 
 
+@app.context_processor
+def _inject_feed_meta() -> dict:
+    """모든 템플릿에서 podcast cover / title 표시 가능하도록 주입."""
+    return {"feed_title": FEED_TITLE, "feed_image_url": FEED_IMAGE_URL}
+
+
 def _kst_now() -> str:
     return datetime.now(timezone(timedelta(hours=9))).isoformat()
 

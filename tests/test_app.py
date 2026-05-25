@@ -129,8 +129,11 @@ def test_episodes_page_lists_downloaded(client):
     assert rv.status_code == 200
     assert b"hello" in rv.data
     assert b"2026-05-20_ep_hello.m4a" in rv.data
-    # 썸네일 URL이 YouTube 표준 패턴으로 자동 생성됨
+    # 영상 썸네일 URL이 YouTube 표준 패턴으로 자동 생성됨
     assert b"i.ytimg.com/vi/ep/hqdefault.jpg" in rv.data
+    # podcast cover 헤더가 상단에 표시 (context_processor가 feed_image_url 주입)
+    assert b"podcast-header" in rv.data
+    assert b"cover.png" in rv.data
 
 
 def test_download_batch_enqueues_multiple(client):

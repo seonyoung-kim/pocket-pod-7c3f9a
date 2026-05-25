@@ -1,9 +1,16 @@
 {% extends "base.html" %}
 {% set active = "episodes" %}
 {% block body %}
-  <div class="feed-url">
-    Feed: <a href="{{ base_url }}/feed.xml">{{ base_url }}/feed.xml</a>
-    · Served by server.py on {{ base_url }}
+  <div class="podcast-header">
+    <img src="{{ feed_image_url }}" alt="podcast cover">
+    <div>
+      <h1>{{ feed_title }}</h1>
+      <div class="sub">
+        Feed:
+        <a href="{{ base_url }}/feed.xml">{{ base_url }}/feed.xml</a>
+      </div>
+      <div class="sub">{{ state.episodes|length }} episode(s)</div>
+    </div>
   </div>
 
   <h2>Episodes ({{ state.episodes|length }})</h2>
