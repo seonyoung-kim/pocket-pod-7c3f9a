@@ -13,5 +13,3 @@ data/*
 feed.xml
 *.bak
 *.log
-.venv/
-__pycache__/
