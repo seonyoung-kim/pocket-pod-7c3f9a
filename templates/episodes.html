@@ -13,6 +13,8 @@
 
   {% for ep in state.episodes|reverse %}
     <div class="card">
+      <img src="https://i.ytimg.com/vi/{{ ep.video_id }}/hqdefault.jpg"
+           alt="" loading="lazy">
       <div class="meta">
         <h3>{{ ep.title }}</h3>
         <div class="sub">

@@ -69,6 +69,18 @@ _worker_thread = threading.Thread(target=_worker_loop, daemon=True)
 _worker_thread.start()
 
 
+def _startup_regen_feed() -> None:
+    """앱 부팅 시 feed.xml 을 현재 BASE_URL 로 재생성. base url 환경이 바뀌어도
+    기존 episodes 의 asset_url 이 자동 동기화된다."""
+    try:
+        regenerate_feed(load_state(STATE_PATH), FEED_META, BASE_URL, FEED_PATH)
+    except Exception:
+        pass  # state 비어있거나 디스크 이슈여도 부팅 자체는 진행
+
+
+_startup_regen_feed()
+
+
 # ---------- routes ----------
 
 def _group_candidates_by_channel(candidates):
