@@ -54,11 +54,15 @@ def build_feed_xml(meta: FeedMeta, episodes: list[FeedEpisode]) -> bytes:
         fe.id(f"youtube:{ep.video_id}")
         fe.guid(f"youtube:{ep.video_id}", permalink=False)
         fe.title(f"{ep.title} — {ep.channel}")
-        fe.description(ep.summary)
+
+        body = ep.summary.strip() if ep.summary else "(설명 없음)"
+        description = f"{body}\n\n원본: {ep.url}"
+        fe.description(description)
+
         fe.link(href=ep.url)
         fe.published(isoparse(ep.published_at))
         fe.enclosure(ep.asset_url, str(ep.asset_bytes), "audio/mp4")
         fe.podcast.itunes_duration(_hhmmss(ep.duration_sec))
-        fe.podcast.itunes_summary(ep.summary)
+        fe.podcast.itunes_summary(description)
 
     return fg.rss_str(pretty=True)

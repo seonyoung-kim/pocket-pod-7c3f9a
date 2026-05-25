@@ -96,3 +96,39 @@ def test_hhmmss_boundary_values():
     assert _hhmmss(3600) == "01:00:00"
     assert _hhmmss(59) == "00:00:59"
     assert _hhmmss(90061) == "25:01:01"
+
+
+def test_description_includes_origin_url():
+    meta = FeedMeta(
+        title="t", description="d", link="http://x",
+        author="a", image_url="http://i", category="Technology",
+    )
+    ep = FeedEpisode(
+        video_id="abc",
+        title="T", channel="C", duration_sec=60,
+        url="https://www.youtube.com/watch?v=abc",
+        summary="요약 첫 줄.",
+        published_at="2026-05-20T00:00:00Z",
+        asset_url="http://x/a.m4a", asset_bytes=123,
+    )
+    xml = build_feed_xml(meta, [ep]).decode()
+    assert "요약 첫 줄." in xml
+    assert "원본: https://www.youtube.com/watch?v=abc" in xml
+
+
+def test_description_falls_back_when_summary_empty():
+    meta = FeedMeta(
+        title="t", description="d", link="http://x",
+        author="a", image_url="http://i", category="Technology",
+    )
+    ep = FeedEpisode(
+        video_id="abc",
+        title="T", channel="C", duration_sec=60,
+        url="https://www.youtube.com/watch?v=abc",
+        summary="",
+        published_at="2026-05-20T00:00:00Z",
+        asset_url="http://x/a.m4a", asset_bytes=123,
+    )
+    xml = build_feed_xml(meta, [ep]).decode()
+    assert "(설명 없음)" in xml
+    assert "원본: https://www.youtube.com/watch?v=abc" in xml
