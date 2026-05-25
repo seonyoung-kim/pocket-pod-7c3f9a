@@ -71,6 +71,61 @@ def test_curate_route_blocks_duplicate_while_running(client):
         app_module._curate_lock.release()
 
 
+def test_add_video_creates_candidate(client):
+    c, tmp_path, app_module = client
+    from scripts.state import Candidate, load_state
+    fake_cand = Candidate(
+        video_id="zZyXwVuT123", channel_id="UC", channel_name="ChX",
+        channel_alias="별명", title="수동 추가 영상",
+        duration_sec=600, view_count=1000,
+        upload_date="2026-05-25", days_old=0,
+        url="https://www.youtube.com/watch?v=zZyXwVuT123",
+        thumbnail_url="https://i/x.jpg", score=1000.0,
+    )
+    with patch("app.video_id_to_candidate", return_value=fake_cand):
+        rv = c.post("/candidates/add", data={
+            "url": "https://youtu.be/zZyXwVuT123",
+            "alias": "별명",
+        }, follow_redirects=False)
+    assert rv.status_code in (302, 303)
+    s = load_state(tmp_path / "state.json")
+    assert [x.video_id for x in s.candidates] == ["zZyXwVuT123"]
+
+
+def test_add_video_rejects_invalid_url(client):
+    c, _, _ = client
+    rv = c.post("/candidates/add", data={"url": "not a url"},
+                follow_redirects=True)
+    # invalid URL → flash error, no candidate added
+    assert b"YouTube URL" in rv.data
+
+
+def test_add_video_skips_duplicate_in_candidates(client):
+    c, tmp_path, app_module = client
+    from scripts.state import Candidate, load_state, save_state
+    s = load_state(tmp_path / "state.json")
+    s.candidates = [Candidate(
+        video_id="dupVid12345", channel_id="UC", channel_name="A",
+        channel_alias="", title="t", duration_sec=1, view_count=10,
+        upload_date="2026-05-20", days_old=1,
+        url="https://youtu.be/dupVid12345", thumbnail_url="", score=10.0,
+    )]
+    save_state(tmp_path / "state.json", s)
+
+    called = []
+    def boom(*a, **kw):
+        called.append(1)
+        raise AssertionError("video_id_to_candidate should not be called")
+    with patch("app.video_id_to_candidate", side_effect=boom):
+        rv = c.post("/candidates/add",
+                    data={"url": "https://youtu.be/dupVid12345"},
+                    follow_redirects=False)
+    assert rv.status_code in (302, 303)
+    assert called == []   # 이미 후보면 deep fetch 시도 안 함
+    s2 = load_state(tmp_path / "state.json")
+    assert len(s2.candidates) == 1   # 중복 추가 없음
+
+
 def test_curate_button_shows_running_state(client):
     c, _, app_module = client
     app_module._curate_running = True

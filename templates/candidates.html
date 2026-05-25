@@ -29,6 +29,13 @@
     </script>
   {% endif %}
 
+  <form method="post" action="/candidates/add" class="add-video-form">
+    <input name="url" type="url" required
+           placeholder="https://www.youtube.com/watch?v=... 또는 https://youtu.be/...">
+    <input name="alias" type="text" size="14" placeholder="채널 표시명 (선택)">
+    <button type="submit">+ 영상 추가</button>
+  </form>
+
   {% if not state.candidates %}
     <div class="empty">
       아직 큐레이션을 안 돌렸어. [Refresh Candidates] 눌러봐.

@@ -2,6 +2,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -12,6 +13,25 @@ from yt_dlp import YoutubeDL, DownloadError
 
 from scripts.state import Candidate, State, load_state, save_state
 from scripts.watchlist import ChannelEntry, Watchlist, load_watchlist
+
+
+_VIDEO_ID_PATTERNS = [
+    re.compile(r"youtube\.com/watch\?[^#]*?v=([A-Za-z0-9_-]{11})"),
+    re.compile(r"youtu\.be/([A-Za-z0-9_-]{11})"),
+    re.compile(r"youtube\.com/shorts/([A-Za-z0-9_-]{11})"),
+    re.compile(r"youtube\.com/embed/([A-Za-z0-9_-]{11})"),
+    re.compile(r"^([A-Za-z0-9_-]{11})$"),
+]
+
+
+def extract_video_id(url_or_id: str) -> str | None:
+    """YouTube URL 또는 video_id 11자 토큰에서 video_id 추출."""
+    s = (url_or_id or "").strip()
+    for pat in _VIDEO_ID_PATTERNS:
+        m = pat.search(s)
+        if m:
+            return m.group(1)
+    return None
 
 
 log = logging.getLogger(__name__)
@@ -100,6 +120,30 @@ def _enrich_if_missing(v: VideoMeta) -> VideoMeta:
         view_count=v.view_count if v.view_count is not None else info.get("view_count"),
         upload_date_yyyymmdd=v.upload_date_yyyymmdd or info.get("upload_date"),
         thumbnail_url=v.thumbnail_url or info.get("thumbnail", ""),
+    )
+
+
+def video_id_to_candidate(video_id: str, alias: str | None = None) -> Candidate:
+    """수동 추가용: video_id 만으로 deep fetch 해서 Candidate 생성.
+    anti-bot 등으로 fetch 실패하면 DownloadError 전파."""
+    info = _ytdlp_video_meta(video_id)
+    today = date.today()
+    upload_yyyymmdd = info.get("upload_date") or today.strftime("%Y%m%d")
+    up = _parse_upload(upload_yyyymmdd)
+    view_count = int(info.get("view_count") or 0)
+    return Candidate(
+        video_id=video_id,
+        channel_id=info.get("channel_id") or "",
+        channel_name=info.get("channel") or info.get("uploader") or "",
+        channel_alias=alias or "",
+        title=info.get("title") or "",
+        duration_sec=int(info.get("duration") or 0),
+        view_count=view_count,
+        upload_date=up.isoformat(),
+        days_old=(today - up).days,
+        url=f"https://www.youtube.com/watch?v={video_id}",
+        thumbnail_url=info.get("thumbnail") or "",
+        score=float(view_count),
     )
 
 

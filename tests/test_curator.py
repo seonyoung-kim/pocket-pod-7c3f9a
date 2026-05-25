@@ -166,6 +166,18 @@ def test_fetch_channel_videos_enriches_missing_fields():
     assert out[1].upload_date_yyyymmdd == "20260521"
 
 
+def test_extract_video_id_recognizes_all_youtube_url_forms():
+    from scripts.curator import extract_video_id
+    assert extract_video_id("https://www.youtube.com/watch?v=mhnZOuN1xLk") == "mhnZOuN1xLk"
+    assert extract_video_id("https://youtu.be/mhnZOuN1xLk") == "mhnZOuN1xLk"
+    assert extract_video_id("https://www.youtube.com/shorts/mhnZOuN1xLk") == "mhnZOuN1xLk"
+    assert extract_video_id("https://www.youtube.com/embed/mhnZOuN1xLk") == "mhnZOuN1xLk"
+    assert extract_video_id("https://www.youtube.com/watch?v=mhnZOuN1xLk&t=42s") == "mhnZOuN1xLk"
+    assert extract_video_id("mhnZOuN1xLk") == "mhnZOuN1xLk"
+    assert extract_video_id("https://example.com/foo") is None
+    assert extract_video_id("") is None
+
+
 def test_enrich_returns_original_when_deep_fetch_fails():
     from yt_dlp import DownloadError
     from unittest.mock import patch

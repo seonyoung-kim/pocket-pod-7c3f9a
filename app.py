@@ -5,9 +5,9 @@ import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, flash, redirect, render_template, request, url_for
 
-from scripts.curator import run_curation
+from scripts.curator import extract_video_id, run_curation, video_id_to_candidate
 from scripts.downloader import default_deps, download_one, regenerate_feed
 from scripts.rss_builder import FeedMeta
 from scripts.state import Candidate, SkippedEntry, load_state, save_state
@@ -41,6 +41,7 @@ FEED_META = FeedMeta(
 
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("POCKET_POD_SECRET", "pocket-pod-dev-secret")
 download_queue: queue.Queue[Candidate] = queue.Queue()
 
 # /curate 중복 호출 방어 — non-blocking lock + flag.
@@ -136,6 +137,42 @@ def curate():
         return redirect(url_for("index"))
     _curate_running = True
     threading.Thread(target=_run_curate_in_bg, daemon=True).start()
+    return redirect(url_for("index"))
+
+
+@app.route("/candidates/add", methods=["POST"])
+def candidates_add():
+    """수동으로 YouTube URL 을 후보 리스트에 추가. anti-bot 등으로 메타 fetch 가
+    실패하면 flash 로 알리고 후보는 추가하지 않는다."""
+    url = (request.form.get("url") or "").strip()
+    alias = (request.form.get("alias") or "").strip() or None
+    if not url:
+        flash("URL을 입력해줘.", "error")
+        return redirect(url_for("index"))
+    vid = extract_video_id(url)
+    if not vid:
+        flash(f"YouTube URL이 아닌 것 같아: {url}", "error")
+        return redirect(url_for("index"))
+
+    state = load_state(STATE_PATH)
+    if any(c.video_id == vid for c in state.candidates):
+        flash(f"이미 후보에 있어: {vid}", "info")
+        return redirect(url_for("index"))
+    if any(e.video_id == vid for e in state.episodes):
+        flash(f"이미 다운로드한 영상이야: {vid}", "info")
+        return redirect(url_for("index"))
+
+    try:
+        cand = video_id_to_candidate(vid, alias=alias)
+    except Exception as e:
+        flash(f"메타 fetch 실패 ({vid}): {e}", "error")
+        return redirect(url_for("index"))
+
+    state.candidates.insert(0, cand)
+    # 한 번이라도 추가하면 last_curated_at 도 갱신해서 페이지에 stale 표시 안 보이게.
+    state.last_curated_at = _kst_now()
+    save_state(STATE_PATH, state)
+    flash(f"추가됨: {cand.title or vid}", "info")
     return redirect(url_for("index"))
 
 
