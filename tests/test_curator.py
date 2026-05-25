@@ -151,7 +151,7 @@ def test_fetch_channel_videos_enriches_missing_fields():
         def __init__(self, opts): self.opts = opts
         def __enter__(self): return self
         def __exit__(self, *a): pass
-        def extract_info(self, url, download=False):
+        def extract_info(self, url, download=False, process=True):
             return flat_response if "/videos" in url else deep_response
 
     with patch("scripts.curator.YoutubeDL", FakeYDL):

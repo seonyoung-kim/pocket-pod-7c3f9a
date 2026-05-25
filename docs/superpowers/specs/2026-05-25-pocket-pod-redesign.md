@@ -163,15 +163,14 @@ YouTube Data API 안 씀. yt-dlp의 `extract_flat='in_playlist'`로 채널 `/vid
 채널 URL은 호출 전 `urllib.parse.quote`로 path만 percent-encode 한다 (한글 핸들 대응).
 
 ```python
+# 채널 /videos 는 tab 페이지라 player_client 옵션과 호환 안 됨.
+# anti-bot 우회용 player_client 는 영상 단위 deep fetch / download 쪽에서만 사용.
 opts = {
     'quiet': True,
     'extract_flat': 'in_playlist',
     'playlistend': N,
     'cookiefile':   os.environ.get('POCKET_POD_COOKIES'),  # 선택
     'http_headers': {'User-Agent': MOBILE_UA},
-    'extractor_args': {
-        'youtube': {'player_client': ['tv_simply', 'web_safari', 'mweb']}
-    },
     'proxy': os.environ.get('POCKET_POD_PROXY'),           # 선택
 }
 ```

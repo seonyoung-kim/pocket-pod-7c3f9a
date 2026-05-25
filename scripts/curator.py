@@ -43,15 +43,14 @@ class VideoMeta:
 
 
 def _ytdl_opts(limit: int) -> dict:
+    # 채널 /videos 는 tab 페이지. mobile UA 와 player_client 옵션은 둘 다
+    # tab 페이지 파서와 호환되지 않아 "Unable to recognize tab page" 를 일으킨다.
+    # 두 옵션은 영상 단위 deep fetch / download 쪽에만 적용한다.
     opts: dict = {
         "quiet": True,
         "no_warnings": True,
         "extract_flat": "in_playlist",
         "playlistend": limit,
-        "http_headers": {"User-Agent": _MOBILE_UA},
-        "extractor_args": {
-            "youtube": {"player_client": ["tv_simply", "web_safari", "mweb"]}
-        },
     }
     if cookies := os.environ.get("POCKET_POD_COOKIES"):
         opts["cookiefile"] = cookies
@@ -61,15 +60,14 @@ def _ytdl_opts(limit: int) -> dict:
 
 
 def _ytdlp_video_meta(video_id: str) -> dict:
-    """단일 영상의 deep metadata. flat extract에서 누락된 필드 보강용."""
+    """단일 영상의 deep metadata. flat extract에서 누락된 필드 보강용.
+    `process=False` 로 호출해 format selection 단계를 건너뛴다
+    (player_client/format 옵션이 metadata-only fetch와 충돌해 "Requested format is
+    not available"을 일으키는 경우를 회피)."""
     opts: dict = {
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
-        "http_headers": {"User-Agent": _MOBILE_UA},
-        "extractor_args": {
-            "youtube": {"player_client": ["tv_simply", "web_safari", "mweb"]}
-        },
     }
     if cookies := os.environ.get("POCKET_POD_COOKIES"):
         opts["cookiefile"] = cookies
@@ -77,7 +75,8 @@ def _ytdlp_video_meta(video_id: str) -> dict:
         opts["proxy"] = proxy
     with YoutubeDL(opts) as ydl:
         return ydl.extract_info(
-            f"https://www.youtube.com/watch?v={video_id}", download=False)
+            f"https://www.youtube.com/watch?v={video_id}",
+            download=False, process=False)
 
 
 def _enrich_if_missing(v: VideoMeta) -> VideoMeta:
