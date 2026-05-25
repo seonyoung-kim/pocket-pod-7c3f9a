@@ -27,6 +27,9 @@ def download_episode(ep: Episode, out_dir: Path) -> Path | None:
     cookies_file = os.environ.get("POCKET_POD_COOKIES_FILE")
     if cookies_file and Path(cookies_file).is_file():
         cmd.extend(["--cookies", cookies_file])
+    proxy_url = os.environ.get("POCKET_POD_PROXY_URL")
+    if proxy_url:
+        cmd.extend(["--proxy", proxy_url])
     cmd.extend([
         "-o", str(out_path.with_suffix("")) + ".%(ext)s",
         ep.url,

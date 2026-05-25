@@ -57,6 +57,7 @@ jobs:
       - name: Download audio
         env:
           POCKET_POD_COOKIES_FILE: out/cookies.txt
+          POCKET_POD_PROXY_URL: ${{ secrets.YT_PROXY_URL }}
         run: python -m scripts.download
       - name: Publish to Release + Pages
         env:
