@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 {% set active = "candidates" %}
 {% block body %}
-  <div class="feed-url">
-    Subscribe: {{ base_url }}/feed.xml
-  </div>
-
-  <div style="display:flex; justify-content: space-between; align-items: center;">
-    <div>Last curated: {{ state.last_curated_at or "—" }}</div>
-    <form method="post" action="/curate" class="inline">
+  <div class="podcast-header">
+    <img src="{{ feed_image_url }}" alt="podcast cover">
+    <div>
+      <h1>{{ feed_title }}</h1>
+      <div class="sub">
+        Subscribe:
+        <a href="{{ base_url }}/feed.xml">{{ base_url }}/feed.xml</a>
+      </div>
+      <div class="sub">{{ state.candidates|length }} candidate(s)
+        · last curated: {{ state.last_curated_at or "—" }}</div>
+    </div>
+    <form method="post" action="/curate" class="inline"
+          style="margin-left:auto;">
       <button type="submit">↻ Refresh Candidates</button>
     </form>
   </div>

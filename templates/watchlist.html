@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% set active = "watchlist" %}
 {% block body %}
+  <div class="podcast-header">
+    <img src="{{ feed_image_url }}" alt="podcast cover">
+    <div>
+      <h1>{{ feed_title }}</h1>
+      <div class="sub">
+        Feed:
+        <a href="{{ base_url }}/feed.xml">{{ base_url }}/feed.xml</a>
+      </div>
+      <div class="sub">{{ watchlist.channels|length }} channel(s) subscribed</div>
+    </div>
+  </div>
+
   <h2>Defaults</h2>
   <div class="sub">
     lookback_days = {{ watchlist.defaults.lookback_days }},
