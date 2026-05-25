@@ -121,6 +121,27 @@ def download(video_id: str):
     return redirect(url_for("index"))
 
 
+@app.route("/download-batch", methods=["POST"])
+def download_batch():
+    video_ids = request.form.getlist("video_id")
+    if not video_ids:
+        return redirect(url_for("index"))
+    state = load_state(STATE_PATH)
+    cands_by_id = {c.video_id: c for c in state.candidates}
+    queued: list = []
+    for vid in video_ids:
+        cand = cands_by_id.get(vid)
+        if cand is None:
+            continue
+        if vid not in state.in_progress:
+            state.in_progress.append(vid)
+        queued.append(cand)
+    save_state(STATE_PATH, state)
+    for cand in queued:
+        download_queue.put(cand)
+    return redirect(url_for("index"))
+
+
 @app.route("/watchlist", methods=["GET"])
 def watchlist_page():
     wl = load_watchlist(WATCHLIST_PATH)

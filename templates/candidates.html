@@ -16,12 +16,24 @@
     <div class="empty">
       아직 큐레이션을 안 돌렸어. [Refresh Candidates] 눌러봐.
     </div>
+  {% else %}
+    <form id="batch" method="post" action="/download-batch"></form>
+    <div class="batch-bar">
+      <label class="sub">
+        <input type="checkbox" id="select-all"> 전체 선택
+      </label>
+      <button form="batch" type="submit">▶ Download Selected</button>
+      <span class="sub">선택된 후보를 일괄로 다운로드 큐에 추가</span>
+    </div>
   {% endif %}
 
   {% for channel, items in grouped.items() %}
     <h2 class="channel-section">{{ channel }} <span class="sub">({{ items|length }})</span></h2>
     {% for c in items %}
       <div class="card">
+        <input class="batch-check" type="checkbox" name="video_id"
+               value="{{ c.video_id }}" form="batch"
+               {% if c.video_id in state.in_progress %}disabled{% endif %}>
         {% if c.thumbnail_url %}<img src="{{ c.thumbnail_url }}" alt="">{% endif %}
         <div class="meta">
           <h3>{{ c.title }}</h3>
@@ -54,4 +66,15 @@
       </div>
     {% endfor %}
   {% endfor %}
+
+  <script>
+    (function() {
+      var all = document.getElementById('select-all');
+      if (!all) return;
+      var boxes = document.querySelectorAll('input.batch-check:not([disabled])');
+      all.addEventListener('change', function() {
+        boxes.forEach(function(b) { b.checked = all.checked; });
+      });
+    })();
+  </script>
 {% endblock %}

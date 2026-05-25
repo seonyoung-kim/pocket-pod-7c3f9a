@@ -131,6 +131,84 @@ def test_episodes_page_lists_downloaded(client):
     assert b"2026-05-20_ep_hello.m4a" in rv.data
 
 
+def test_download_batch_enqueues_multiple(client):
+    c, tmp_path, app_module = client
+    from scripts.state import load_state, save_state
+    s = load_state(tmp_path / "state.json")
+    s.candidates = [
+        Candidate(video_id="v1", channel_id="UC", channel_name="A",
+                  channel_alias="", title="t1", duration_sec=1, view_count=10,
+                  upload_date="2026-05-20", days_old=1, url="https://yt/v1",
+                  thumbnail_url="", score=10.0),
+        Candidate(video_id="v2", channel_id="UC", channel_name="A",
+                  channel_alias="", title="t2", duration_sec=1, view_count=20,
+                  upload_date="2026-05-20", days_old=1, url="https://yt/v2",
+                  thumbnail_url="", score=20.0),
+        Candidate(video_id="v3", channel_id="UC", channel_name="A",
+                  channel_alias="", title="t3", duration_sec=1, view_count=30,
+                  upload_date="2026-05-20", days_old=1, url="https://yt/v3",
+                  thumbnail_url="", score=30.0),
+    ]
+    save_state(tmp_path / "state.json", s)
+
+    captured = []
+    def probe(candidate, **kw):
+        captured.append(candidate.video_id)
+        return True
+
+    with patch.object(app_module, "download_one", side_effect=probe):
+        rv = c.post("/download-batch",
+                    data={"video_id": ["v1", "v3"]},
+                    follow_redirects=False)
+        assert rv.status_code in (302, 303)
+        app_module.download_queue.join()
+
+    assert captured == ["v1", "v3"]
+    s2 = load_state(tmp_path / "state.json")
+    # in_progress is cleared by the worker probe? No — probe doesn't manage state.
+    # The route adds both to in_progress before queueing.
+    assert set(s2.in_progress) == {"v1", "v3"}
+
+
+def test_download_batch_empty_form_redirects(client):
+    """video_id 없이 POST해도 안전하게 redirect (no-op)."""
+    c, tmp_path, app_module = client
+    captured = []
+    with patch.object(app_module, "download_one",
+                       side_effect=lambda candidate, **kw: captured.append(candidate.video_id)):
+        rv = c.post("/download-batch", data={})
+        assert rv.status_code in (302, 303)
+        app_module.download_queue.join()
+    assert captured == []
+
+
+def test_download_batch_ignores_unknown_video_ids(client):
+    c, tmp_path, app_module = client
+    from scripts.state import load_state, save_state
+    s = load_state(tmp_path / "state.json")
+    s.candidates = [
+        Candidate(video_id="known", channel_id="UC", channel_name="A",
+                  channel_alias="", title="t", duration_sec=1, view_count=10,
+                  upload_date="2026-05-20", days_old=1, url="https://yt/k",
+                  thumbnail_url="", score=10.0),
+    ]
+    save_state(tmp_path / "state.json", s)
+
+    captured = []
+    def probe(candidate, **kw):
+        captured.append(candidate.video_id)
+        return True
+
+    with patch.object(app_module, "download_one", side_effect=probe):
+        rv = c.post("/download-batch",
+                    data={"video_id": ["known", "ghost"]},
+                    follow_redirects=False)
+        assert rv.status_code in (302, 303)
+        app_module.download_queue.join()
+
+    assert captured == ["known"]
+
+
 def test_index_groups_candidates_by_channel(client):
     c, tmp_path, _ = client
     from scripts.state import load_state, save_state
