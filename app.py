@@ -43,11 +43,19 @@ FEED_META = FeedMeta(
 app = Flask(__name__)
 download_queue: queue.Queue[Candidate] = queue.Queue()
 
+# /curate 중복 호출 방어 — non-blocking lock + flag.
+_curate_lock = threading.Lock()
+_curate_running = False
+
 
 @app.context_processor
 def _inject_feed_meta() -> dict:
-    """모든 템플릿에서 podcast cover / title 표시 가능하도록 주입."""
-    return {"feed_title": FEED_TITLE, "feed_image_url": FEED_IMAGE_URL}
+    """모든 템플릿에서 podcast cover / title / curate 진행 상태를 사용 가능."""
+    return {
+        "feed_title": FEED_TITLE,
+        "feed_image_url": FEED_IMAGE_URL,
+        "curate_running": _curate_running,
+    }
 
 
 def _kst_now() -> str:
@@ -110,9 +118,24 @@ def index():
     )
 
 
+def _run_curate_in_bg() -> None:
+    global _curate_running
+    try:
+        run_curation(WATCHLIST_PATH, STATE_PATH)
+    finally:
+        _curate_running = False
+        _curate_lock.release()
+
+
 @app.route("/curate", methods=["POST"])
 def curate():
-    run_curation(WATCHLIST_PATH, STATE_PATH)
+    """큐레이션은 채널당 30~90초 걸리므로 background thread 로 던지고 즉시 redirect.
+    이미 실행 중이면 두 번째 호출은 no-op (lock acquire 실패)."""
+    global _curate_running
+    if not _curate_lock.acquire(blocking=False):
+        return redirect(url_for("index"))
+    _curate_running = True
+    threading.Thread(target=_run_curate_in_bg, daemon=True).start()
     return redirect(url_for("index"))
 
 

@@ -14,9 +14,20 @@
     </div>
     <form method="post" action="/curate" class="inline"
           style="margin-left:auto;">
-      <button type="submit">↻ Refresh Candidates</button>
+      {% if curate_running %}
+        <button type="submit" disabled>⏳ Refreshing... 진행 중</button>
+      {% else %}
+        <button type="submit">↻ Refresh Candidates</button>
+      {% endif %}
     </form>
   </div>
+
+  {% if curate_running %}
+    <script>
+      // 큐레이션이 끝나면 자동으로 새 후보가 표시되도록 5초마다 reload.
+      setTimeout(function() { location.reload(); }, 5000);
+    </script>
+  {% endif %}
 
   {% if not state.candidates %}
     <div class="empty">

@@ -33,14 +33,13 @@ def test_index_empty_state_shows_hint(client):
 
 
 def test_curate_route_triggers_curator_and_redirects(client):
-    c, tmp_path, _ = client
+    c, tmp_path, app_module = client
     cand = Candidate(
         video_id="a", channel_id="UC", channel_name="A", channel_alias="",
         title="t", duration_sec=1, view_count=10, upload_date="2026-05-20",
         days_old=1, url="https://yt/a", thumbnail_url="", score=10.0,
     )
     with patch("app.run_curation", return_value=1) as m:
-        # actually persist candidate so redirect page shows it
         def fake(wl, st):
             from scripts.state import load_state, save_state
             s = load_state(st)
@@ -48,9 +47,39 @@ def test_curate_route_triggers_curator_and_redirects(client):
             save_state(st, s)
             return 1
         m.side_effect = fake
-        rv = c.post("/curate", follow_redirects=True)
-    assert rv.status_code == 200
-    assert b"a" in rv.data    # video_id rendered
+        rv = c.post("/curate", follow_redirects=False)
+        assert rv.status_code in (302, 303)
+        # background thread 완료까지 대기 (lock 잡으면 thread는 release됨)
+        with app_module._curate_lock:
+            pass
+    rv2 = c.get("/")
+    assert rv2.status_code == 200
+    assert b"a" in rv2.data    # video_id rendered
+
+
+def test_curate_route_blocks_duplicate_while_running(client):
+    c, tmp_path, app_module = client
+    # 다른 curation 이 이미 실행 중인 상황 시뮬레이션
+    assert app_module._curate_lock.acquire(blocking=False)
+    captured = []
+    try:
+        with patch("app.run_curation", side_effect=lambda *a, **kw: captured.append(1)):
+            rv = c.post("/curate", follow_redirects=False)
+            assert rv.status_code in (302, 303)
+        assert captured == []   # 두 번째 호출은 no-op
+    finally:
+        app_module._curate_lock.release()
+
+
+def test_curate_button_shows_running_state(client):
+    c, _, app_module = client
+    app_module._curate_running = True
+    try:
+        rv = c.get("/")
+        assert b"Refreshing" in rv.data
+        assert b"disabled" in rv.data
+    finally:
+        app_module._curate_running = False
 
 
 def test_skip_marks_skipped_and_removes_from_candidates(client):
