@@ -129,3 +129,33 @@ def test_episodes_page_lists_downloaded(client):
     assert rv.status_code == 200
     assert b"hello" in rv.data
     assert b"2026-05-20_ep_hello.m4a" in rv.data
+
+
+def test_index_groups_candidates_by_channel(client):
+    c, tmp_path, _ = client
+    from scripts.state import load_state, save_state
+    s = load_state(tmp_path / "state.json")
+    s.candidates = [
+        Candidate(video_id="a1", channel_id="UC1", channel_name="ChA",
+                  channel_alias="에이", title="ta1", duration_sec=60,
+                  view_count=100, upload_date="2026-05-24", days_old=1,
+                  url="https://yt/a1", thumbnail_url="", score=100.0),
+        Candidate(video_id="b1", channel_id="UC2", channel_name="ChB",
+                  channel_alias="비", title="tb1", duration_sec=60,
+                  view_count=99, upload_date="2026-05-23", days_old=2,
+                  url="https://yt/b1", thumbnail_url="", score=99.0),
+        Candidate(video_id="a2", channel_id="UC1", channel_name="ChA",
+                  channel_alias="에이", title="ta2", duration_sec=60,
+                  view_count=50, upload_date="2026-05-20", days_old=5,
+                  url="https://yt/a2", thumbnail_url="", score=50.0),
+    ]
+    save_state(tmp_path / "state.json", s)
+    rv = c.get("/")
+    assert rv.status_code == 200
+    body = rv.data.decode()
+    # 두 채널 헤더가 다 나오고, 채널마다 카드 수가 정확히 표시
+    assert "에이" in body
+    assert "비" in body
+    assert "(2)" in body and "(1)" in body
+    # "에이" 섹션이 "비" 섹션보다 먼저 나옴 (글로벌 정렬상 a1이 더 최근)
+    assert body.index("에이") < body.index("비")

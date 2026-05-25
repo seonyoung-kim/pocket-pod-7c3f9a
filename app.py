@@ -71,12 +71,23 @@ _worker_thread.start()
 
 # ---------- routes ----------
 
+def _group_candidates_by_channel(candidates):
+    """후보를 채널 단위 dict로 묶는다. dict insertion 순서가 보존되므로
+    글로벌 정렬 순서(upload_date desc, view_count desc)대로 채널이 등장한다."""
+    grouped: dict[str, list] = {}
+    for c in candidates:
+        key = c.channel_alias or c.channel_name or "(unknown)"
+        grouped.setdefault(key, []).append(c)
+    return grouped
+
+
 @app.route("/")
 def index():
     state = load_state(STATE_PATH)
     return render_template(
         "candidates.html",
         state=state,
+        grouped=_group_candidates_by_channel(state.candidates),
         base_url=BASE_URL,
     )
 

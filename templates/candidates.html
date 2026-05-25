@@ -18,38 +18,40 @@
     </div>
   {% endif %}
 
-  {% for c in state.candidates %}
-    <div class="card">
-      {% if c.thumbnail_url %}<img src="{{ c.thumbnail_url }}" alt="">{% endif %}
-      <div class="meta">
-        <h3>{{ c.title }}</h3>
-        <div class="sub">
-          {{ c.channel_alias or c.channel_name }}
-          · {{ c.upload_date }} ({{ c.days_old }}d)
-          · {{ "%d:%02d"|format(c.duration_sec // 60, c.duration_sec % 60) }}
-        </div>
-        <div class="sub">{{ "{:,}".format(c.view_count) }} views</div>
-        <div class="actions">
-          {% if c.video_id in state.in_progress %}
-            <span class="badge-progress">⏳ downloading...</span>
-          {% elif state.last_errors.get(c.video_id) %}
-            <span class="badge-error">⚠ {{ state.last_errors[c.video_id] }}</span>
-            <form method="post" action="/download/{{ c.video_id }}" class="inline">
-              <button type="submit">↺ Retry</button>
-            </form>
-            <form method="post" action="/skip/{{ c.video_id }}" class="inline">
-              <button type="submit">✕ Skip</button>
-            </form>
-          {% else %}
-            <form method="post" action="/download/{{ c.video_id }}" class="inline">
-              <button type="submit">▶ Download</button>
-            </form>
-            <form method="post" action="/skip/{{ c.video_id }}" class="inline">
-              <button type="submit">✕ Skip</button>
-            </form>
-          {% endif %}
+  {% for channel, items in grouped.items() %}
+    <h2 class="channel-section">{{ channel }} <span class="sub">({{ items|length }})</span></h2>
+    {% for c in items %}
+      <div class="card">
+        {% if c.thumbnail_url %}<img src="{{ c.thumbnail_url }}" alt="">{% endif %}
+        <div class="meta">
+          <h3>{{ c.title }}</h3>
+          <div class="sub">
+            {{ c.upload_date }} ({{ c.days_old }}d)
+            · {{ "%d:%02d"|format(c.duration_sec // 60, c.duration_sec % 60) }}
+          </div>
+          <div class="sub">{{ "{:,}".format(c.view_count) }} views</div>
+          <div class="actions">
+            {% if c.video_id in state.in_progress %}
+              <span class="badge-progress">⏳ downloading...</span>
+            {% elif state.last_errors.get(c.video_id) %}
+              <span class="badge-error">⚠ {{ state.last_errors[c.video_id] }}</span>
+              <form method="post" action="/download/{{ c.video_id }}" class="inline">
+                <button type="submit">↺ Retry</button>
+              </form>
+              <form method="post" action="/skip/{{ c.video_id }}" class="inline">
+                <button type="submit">✕ Skip</button>
+              </form>
+            {% else %}
+              <form method="post" action="/download/{{ c.video_id }}" class="inline">
+                <button type="submit">▶ Download</button>
+              </form>
+              <form method="post" action="/skip/{{ c.video_id }}" class="inline">
+                <button type="submit">✕ Skip</button>
+              </form>
+            {% endif %}
+          </div>
         </div>
       </div>
-    </div>
+    {% endfor %}
   {% endfor %}
 {% endblock %}
