@@ -43,21 +43,20 @@ def _now_kst_iso() -> str:
 
 
 def _ytdlp_meta(url: str) -> dict:
+    """description / duration / upload_date 만 필요한 metadata fetch.
+    `process=False` 로 format selection 단계를 건너뛴다 (player_client/format
+    옵션이 metadata-only fetch 와 충돌하는 케이스 회피)."""
     opts: dict = {
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
-        "http_headers": {"User-Agent": _MOBILE_UA},
-        "extractor_args": {
-            "youtube": {"player_client": ["tv_simply", "web_safari", "mweb"]}
-        },
     }
     if cookies := os.environ.get("POCKET_POD_COOKIES"):
         opts["cookiefile"] = cookies
     if proxy := os.environ.get("POCKET_POD_PROXY"):
         opts["proxy"] = proxy
     with YoutubeDL(opts) as ydl:
-        return ydl.extract_info(url, download=False)
+        return ydl.extract_info(url, download=False, process=False)
 
 
 def _ytdlp_download(url: str, out_path: Path) -> bool:
