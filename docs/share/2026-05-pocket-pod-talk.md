@@ -64,33 +64,35 @@ style: |
 
 ## 부딪힌 다섯 가지 — "YouTube 는 친절하지 않다"
 
-| # | 증상 | 한 줄로 |
+| # | 증상 (테스트한 채널: `@지식인사이드`, `@보다BODA`) | 한 줄로 |
 |---|------|--------|
-| 1 | `@지식인사이드` URL 을 `yt-dlp` 가 raw 로 못 읽음 | **한글 핸들** percent-encode 안 됨 |
+| 1 | non-ASCII path 의 URL 을 `yt-dlp` 가 raw 로 못 읽음 | percent-encode 후 OK |
 | 2 | 후보 리스트가 매번 **0개** | flat extract 에 `view_count` / `upload_date` 누락 |
 | 3 | "Unable to recognize tab page" | anti-bot 우회 옵션이 채널 페이지를 깨뜨림 |
-| 4 | 다운로드만 가면 "Only images available" | `player_client` 가 GVS PO Token 요구 |
+| 4 | 다운로드만 가면 "Only images available" | `player_client` 옵션이 GVS PO Token 요구 |
 | 5 | LaunchAgent 자동 실행 시 `yt-dlp not found` | system PATH 에 venv·brew 없음 |
 
-다음 슬라이드부터 각각의 진단·해결.
+> ⚠️ ①·② 가 *한국 채널 공통* 인지, *이 두 채널의 특성* 인지는 영문 채널 대조 안 함 — 미검증.
 
 ---
 
-## 큐레이션 — 한국 채널 특정 (사례 1·2)
+## 큐레이션 — 두 채널에서 관찰한 증상 (사례 1·2)
 
 **증상 ①** — `https://www.youtube.com/@지식인사이드` 로 요청 보내면
 ```
 ExtractorError: Unable to recognize tab page
 ```
 → yt-dlp 가 URL 을 raw 로 받음. **path 만 percent-encode** 하면 정상.
+*(이게 한글 핸들 전부의 문제인지 이 채널만의 문제인지는 미검증.)*
 
 **증상 ②** — flat extract 결과:
 ```
 h6hZNwiMMx4   NA   NA   "쎄함은 과학입니다" FBI 요원이 ...
 ```
-한국 채널의 `/videos` 페이지는 `view_count` / `upload_date` 가 비어 있음.
+이 채널의 `/videos` 페이지는 `view_count` / `upload_date` 가 비어 있음.
 → 후보 정렬·필터 정보가 없어 **0개**.
 → 영상 ID 만 받고, 영상 단위 **deep fetch 1회** 로 보강 (`process=False` 로 format selection 단계 skip).
+*(다른 채널에서도 같은 누락이 나는지는 미검증.)*
 
 ---
 
@@ -105,8 +107,6 @@ pocket-pod 초기 코드는 anti-bot 회피용으로 `player_client=tv_simply,we
 | 영상 audio 다운로드 | ❌ GVS PO Token 요구 → "Only images are available" |
 
 **해결**: 옵션 빼고 **yt-dlp default** 가 가장 잘 됨. anti-bot 은 `POCKET_POD_COOKIES` env 로만.
-
-> "방어 옵션을 너무 일찍 박아두면, 그게 새로운 장애가 된다."
 
 ---
 
@@ -127,31 +127,27 @@ LaunchAgent 가 spawn 하는 process 의 `PATH` 는 **시스템 기본값**.
 - `_ytdlp_binary()` → `sys.executable` 옆 + PATH fallback
 - `_ffmpeg_location()` → brew 위치 probe 후 `--ffmpeg-location` 명시
 
-> 환경이 바뀌면 동작이 바뀐다. 같은 코드, 다른 PATH = 다른 버그.
-
 ---
 
-## 일주일 써본 사례
+## 오늘 검증한 결과
 
-- watchlist: **지식인사이드 + 보다** 2개
-- 자동 큐레이션 후보: 채널당 5개씩 **10개**
-- 그중 골라 다운로드:
+- watchlist: **지식인사이드 + 보다** 2개 (테스트용)
+- 큐레이션 → 후보 10개 자동 제시
+- 다운로드 검증한 3편 (실제 m4a + RSS 노출 확인):
   - 카파시 *"AI-native 의 역량"* (24m)
   - 보다 *"호르무즈 해협"* (28m)
   - 지식인사이드 *"AI로봇 근황"* (19m)
-- iPhone Apple Podcasts 에서 LAN 피드 구독 → 자동 fetch, 오프라인 청취 OK
+- iPhone Apple Podcasts 에서 LAN 피드 구독·재생 검증
 
-세팅 이후 추가 작업: **클릭 30초/주**
+> 실사용·운영 데이터 없음. 오늘 만든 결과.
 
 ---
 
-## 얻은 인사이트
+## 정리
 
-🎯 **단순한 욕망** ("오디오만 쓰고 싶다") 이 의외로 많은 장애를 통과해야 풀린다
-🌐 **공식 API 없이 yt-dlp 한 줄로 모든 채널 데이터를 받지만**, 한국어 채널·anti-bot·macOS 환경의 미묘한 차이가 줄줄이 막음
-🧰 **"방어 옵션을 일찍 박지 말 것"** — 같은 옵션이 어디선 회피, 어디선 차단
-🔁 **자가-도구의 미덕** — 매일 쓰는 도구라 모든 장애를 직접 해결할 동기가 있음
-🪄 **확장 가능** — 같은 패턴으로 블로그→TTS, 사내 영상→사내 podcast 등
+- 단순한 욕망("YouTube longform 을 오프라인 오디오로") 인데 *yt-dlp 의 옵션 조합·환경 PATH·anti-bot* 세 갈래에서 장애가 줄줄이 나옴
+- **같은 yt-dlp 옵션이 시나리오마다 다르게 동작** — 채널 listing, 영상 metadata, audio download 셋이 서로 다른 이유로 깨짐
+- **LaunchAgent 같은 시스템 환경에서는 venv·brew 의존성은 절대경로로 해결** 필요
 
 ---
 
