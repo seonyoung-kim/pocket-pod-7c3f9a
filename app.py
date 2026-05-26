@@ -1,9 +1,11 @@
 from __future__ import annotations
 import os
 import queue
+import socket
 import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from flask import Flask, flash, redirect, render_template, request, url_for
 
@@ -49,13 +51,59 @@ _curate_lock = threading.Lock()
 _curate_running = False
 
 
+def _detect_lan_ip() -> str:
+    """현재 머신의 외부향 LAN IP. UDP 소켓 'connect' 는 패킷을 보내지 않고
+    OS 라우팅 테이블만 조회하므로 오프라인이어도 부담 없다."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+SERVER_PORT = int(os.environ.get("POCKET_POD_SERVER_PORT", "8000"))
+APP_PORT    = int(os.environ.get("POCKET_POD_APP_PORT",    "8001"))
+
+
+def _live_base_url() -> str:
+    """feed.xml 의 asset_url / image_url 에 박을 base. 네트워크 IP 가 바뀌어도
+    매 호출마다 새 LAN IP 를 사용하므로 재시작 없이 따라간다."""
+    return f"http://{_detect_lan_ip()}:{SERVER_PORT}"
+
+
+def _live_feed_meta(base_url: str) -> FeedMeta:
+    return FeedMeta(
+        title=FEED_TITLE,
+        description="Personal YouTube → audio podcast",
+        link=base_url,
+        author=FEED_AUTHOR,
+        image_url=f"{base_url.rstrip('/')}/cover.png",
+        category="Technology",
+    )
+
+
 @app.context_processor
 def _inject_feed_meta() -> dict:
     """모든 템플릿에서 podcast cover / title / curate 진행 상태를 사용 가능."""
+    lan_ip = _detect_lan_ip()
+    live_base = f"http://{lan_ip}:{SERVER_PORT}"
+    env_host = urlparse(BASE_URL).hostname or ""
     return {
         "feed_title": FEED_TITLE,
-        "feed_image_url": FEED_IMAGE_URL,
+        "feed_image_url": f"{live_base}/cover.png",
         "curate_running": _curate_running,
+        "lan_ip": lan_ip,
+        "server_port": SERVER_PORT,
+        "app_port": APP_PORT,
+        "live_base_url": live_base,
+        # POCKET_POD_BASE_URL 환경변수(plist 에 박혀있을 수 있음)와 현재 LAN IP 가
+        # 다르면 사용자에게 알려준다. 실제 feed.xml 은 live IP 로 재생성되므로
+        # 동작에는 문제 없지만, 설정 정리 필요성을 인지시키기 위함.
+        "base_url_stale": bool(env_host) and env_host != lan_ip,
+        "base_url_host": env_host,
     }
 
 
@@ -67,13 +115,14 @@ def _worker_loop():
     while True:
         cand = download_queue.get()
         try:
+            base = _live_base_url()
             download_one(
                 candidate=cand,
                 state_path=STATE_PATH,
                 downloads_dir=DOWNLOADS_DIR,
                 feed_path=FEED_PATH,
-                feed_meta=FEED_META,
-                base_url=BASE_URL,
+                feed_meta=_live_feed_meta(base),
+                base_url=base,
                 deps=default_deps(),
             )
         finally:
@@ -85,10 +134,11 @@ _worker_thread.start()
 
 
 def _startup_regen_feed() -> None:
-    """앱 부팅 시 feed.xml 을 현재 BASE_URL 로 재생성. base url 환경이 바뀌어도
+    """앱 부팅 시 feed.xml 을 현재 LAN IP 로 재생성. 네트워크 IP 가 바뀌어도
     기존 episodes 의 asset_url 이 자동 동기화된다."""
     try:
-        regenerate_feed(load_state(STATE_PATH), FEED_META, BASE_URL, FEED_PATH)
+        base = _live_base_url()
+        regenerate_feed(load_state(STATE_PATH), _live_feed_meta(base), base, FEED_PATH)
     except Exception:
         pass  # state 비어있거나 디스크 이슈여도 부팅 자체는 진행
 
@@ -115,7 +165,7 @@ def index():
         "candidates.html",
         state=state,
         grouped=_group_candidates_by_channel(state.candidates),
-        base_url=BASE_URL,
+        base_url=_live_base_url(),
     )
 
 
@@ -260,7 +310,7 @@ def episodes_page():
     return render_template(
         "episodes.html",
         state=state,
-        base_url=BASE_URL,
+        base_url=_live_base_url(),
     )
 
 
@@ -274,7 +324,8 @@ def episode_delete(video_id: str):
             asset.unlink()
         state.episodes = [e for e in state.episodes if e.video_id != video_id]
         save_state(STATE_PATH, state)
-        regenerate_feed(state, FEED_META, BASE_URL, FEED_PATH)
+        base = _live_base_url()
+        regenerate_feed(state, _live_feed_meta(base), base, FEED_PATH)
     return redirect(url_for("episodes_page"))
 
 
