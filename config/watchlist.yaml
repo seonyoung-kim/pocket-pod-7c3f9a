@@ -1,5 +1,10 @@
 defaults:
   lookback_days: 7
   top_k: 5
-
-channels: []
+channels:
+- url: https://www.youtube.com/@지식인사이드
+  alias: 지식인사이드
+- url: https://www.youtube.com/@%EB%B3%B4%EB%8B%A4BODA
+  alias: 보다
+- url: https://www.youtube.com/@sv.developer
+  alias: 실밸개발자
